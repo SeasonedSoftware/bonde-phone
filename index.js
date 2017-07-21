@@ -58,7 +58,7 @@ app.post('/call', (req, res) => {
   .then(call => {
     delete call._version
     // TODO: pass to a postgraphql function
-    postgresClient.query(`update public.twilio_calls set account_sid = '${call.accountSid}', call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
+    postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
   })
   .catch(err => console.log('call:catch', err))
 
@@ -110,14 +110,14 @@ console.log(`1. Express server listen on port ${port}`)
 postgresClient.connect(err => {
   if (err) console.error('connection error', err.stack)
 
-  const triggers = ['watchers']
+  const triggers = ['twilio_call_created']
 
   console.log('2. PosgreSQL client connected and watching notifications')
   triggers.forEach(trigger => console.log(`  - ${trigger}`))
   console.log()
 
   postgresClient.on('notification', ({ channel, payload: textPayload }) => {
-    if (channel === 'watchers') {
+    if (channel === 'twilio_call_created') {
       const payload = JSON.parse(textPayload) || {}
       request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
     }
