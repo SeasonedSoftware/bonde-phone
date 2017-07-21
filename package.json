@@ -1,0 +1,25 @@
+{
+  "name": "bonde-phone",
+  "version": "1.0.0",
+  "description": "A Twilio micro-service that enables the activist to pressure through phone",
+  "main": "index.js",
+  "scripts": {
+    "dev": "NODE_ENV=development NEW_RELIC_ENABLED=false nodemon -r 'babel-register' ./index.js"
+  },
+  "author": "Gabriel Ramos Takeda <gabriel@nossas.org>",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-preset-latest": "^6.24.1",
+    "babel-register": "^6.24.1",
+    "body-parser": "^1.17.2",
+    "dotenv": "^4.0.0",
+    "express": "^4.15.3",
+    "nodemon": "^1.11.0",
+    "pg": "^7.0.1",
+    "twilio": "^3.5.0"
+  },
+  "engines": {
+    "node": "~8.1.2"
+  }
+}
