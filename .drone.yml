@@ -1,20 +1,18 @@
 pipeline:
-  build:
-    image: kkarczmarczyk/node-yarn
+  tests:
+    image: node
     commands:
       - yarn
+      - yarn test
     when:
       event: [push, tag]
 
   publish-staging:
     image: plugins/docker
     repo: nossas/bonde-phone
-    username: lpirola
-    password: ${DOCKER_PASSWORD}
+    secrets: [ docker_username, docker_password ]
     tags:
       - ${DRONE_BRANCH}
-    build_args:
-      - NODE_ENV=production
     when:
       status: success
       branch: [hotfix-*, release-*, feature-*, develop]
@@ -25,6 +23,7 @@ pipeline:
     username: ubuntu
     command_timeout: 120
     port: 22
+    secrets: [ ssh_key ]
     script:
       - sudo docker pull nossas/bonde-phone:${DRONE_BRANCH}
       - sudo docker tag nossas/bonde-phone:${DRONE_BRANCH} dokku/phone:latest
@@ -36,12 +35,9 @@ pipeline:
   publish-production:
     image: plugins/docker
     repo: nossas/bonde-phone
-    username: lpirola
-    password: ${DOCKER_PASSWORD}
+    secrets: [ docker_username, docker_password ]
     tags:
       - ${DRONE_TAG##v}
-    build_args:
-      - NODE_ENV=production
     when:
       status: success
       event: tag
@@ -52,6 +48,7 @@ pipeline:
     username: ubuntu
     command_timeout: 120
     port: 22
+    secrets: [ ssh_key ]
     script:
       - sudo docker pull nossas/bonde-phone:${DRONE_TAG##v}
       - sudo docker tag nossas/bonde-phone:${DRONE_TAG##v} dokku/phone:latest

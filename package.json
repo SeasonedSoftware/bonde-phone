@@ -4,7 +4,8 @@
   "description": "A Twilio micro-service that enables the activist to pressure through phone",
   "main": "index.js",
   "scripts": {
-    "dev": "NODE_ENV=development NEW_RELIC_ENABLED=false nodemon -r 'babel-register' ./index.js"
+    "dev": "NODE_ENV=development NEW_RELIC_ENABLED=false nodemon -r 'babel-register' ./index.js",
+    "test": "echo \"Error: no test specified\" && exit 0"
   },
   "author": "Gabriel Ramos Takeda <gabriel@nossas.org>",
   "license": "GPL-3.0",
