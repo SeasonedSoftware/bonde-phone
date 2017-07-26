@@ -72,17 +72,9 @@ app.post('/forward-to', (req, res) => {
     // TODO: pass to a postgraphql view
     .query(`select * from public.twilio_calls where "from" = '${call.Called}' order by id desc limit 1`)
     .then(({ rows: [row] }) => {
-      console.log('row', row)
       const response = new VoiceResponse()
 
       if (row) {
-        response.say(
-          { voice: 'alice', language: 'pt-BR' },
-          'Olá, eu sou a Alice uma inteligência artificial do BONDE. ' +
-          'Obrigada pela sua contribuição na nossa causa! ' +
-          'Espere só um instante, que vou te conectar com um dos alvos da mobilização.'
-        )
-
         const dial = response.dial({ callerId: row.from })
         row.to.split(',').forEach(to => {
           dial.number({
