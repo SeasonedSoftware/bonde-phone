@@ -68,14 +68,14 @@ app.post('/call', (req, res) => {
 app.post('/forward-to', (req, res) => {
   const call = req.body
 
-  setTimeout(() => {
-    postgresClient
-      // TODO: pass to a postgraphql view
-      .query(`select * from public.twilio_calls where twilio_call_sid = '${call.CallSid}'`)
-      .then(({ rows: [row] }) => {
-        console.log('row', row)
-        const response = new VoiceResponse()
+  postgresClient
+    // TODO: pass to a postgraphql view
+    .query(`select * from public.twilio_calls where "from" = '${call.Called}' order by id desc limit 1`)
+    .then(({ rows: [row] }) => {
+      console.log('row', row)
+      const response = new VoiceResponse()
 
+      if (row) {
         response.say(
           { voice: 'alice', language: 'pt-BR' },
           'Olá, eu sou a Alice uma inteligência artificial do BONDE. ' +
@@ -92,11 +92,12 @@ app.post('/forward-to', (req, res) => {
           }, to)
         })
         // maybe a thank you message?
-
         res.set('Content-Type', 'text/xml')
         res.send(response.toString())
-      })
-  }, 1000)
+      } else {
+        res.end(JSON.stringify({ status: 'no-data' }))
+      }
+    })
 })
 
 //
