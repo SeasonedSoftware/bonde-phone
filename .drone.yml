@@ -3,7 +3,6 @@ pipeline:
     image: kkarczmarczyk/node-yarn
     commands:
       - yarn
-      - yarn test
     when:
       event: [push, tag]
 
