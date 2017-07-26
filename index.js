@@ -48,21 +48,21 @@ app.post('/call', (req, res) => {
     return res.end(JSON.stringify({ status: 'error' }))
   }
 
-  // twilioClient.calls.create({
-  //   url: `${process.env.APP_DOMAIN}/forward-to`,
-  //   to: caller,
-  //   from: process.env.TWILIO_NUMBER,
-  //   method: 'POST',
-  //   statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
-  //   statusCallbackMethod: 'POST',
-  //   statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-  // })
-  // .then(call => {
-  //   delete call._version
-  //   // TODO: pass to a postgraphql function
-  //   postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
-  // })
-  // .catch(err => console.log('call:catch', err))
+  twilioClient.calls.create({
+    url: `${process.env.APP_DOMAIN}/forward-to`,
+    to: caller,
+    from: process.env.TWILIO_NUMBER,
+    method: 'POST',
+    statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
+    statusCallbackMethod: 'POST',
+    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+  })
+  .then(call => {
+    delete call._version
+    // TODO: pass to a postgraphql function
+    postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
+  })
+  .catch(err => console.log('call:catch', err))
 
   res.end(JSON.stringify({ status: 'ok' }))
 })
@@ -75,6 +75,7 @@ app.post('/forward-to', (req, res) => {
     .query(`select * from public.twilio_calls where twilio_call_sid = '${call.CallSid}'`)
     .then(({ rows: [row] }) => {
       const response = new VoiceResponse()
+      console.log('row', row)
 
       response.say(
         { voice: 'alice', language: 'pt-BR' },
@@ -122,7 +123,7 @@ postgresClient.connect(err => {
     if (channel === 'twilio_call_created') {
       const payload = JSON.parse(textPayload) || {}
       console.log('payload', payload)
-      // request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
+      request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
     }
   })
 
