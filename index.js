@@ -70,7 +70,7 @@ app.post('/forward-to', (req, res) => {
 
   postgresClient
     // TODO: pass to a postgraphql view
-    .query(`select * from public.twilio_calls where call_sid = '${call.CallSid}'`)
+    .query(`select * from public.twilio_calls where twilio_call_sid = '${call.CallSid}'`)
     .then(({ rows: [row] }) => {
       const response = new VoiceResponse()
 
