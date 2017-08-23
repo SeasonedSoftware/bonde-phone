@@ -41,6 +41,11 @@ app.post('/call-status-tracking', (req, res) => {
 
 app.post('/call', (req, res) => {
   const { id, from: caller } = req.body
+  if (process.env.DEBUG === '1') {
+    console.log('endpoint /call entered!')
+    console.log('id', id)
+    console.log('caller', caller)
+  }
 
   if (!id || !caller) {
     return res.end(JSON.stringify({ status: 'error' }))
@@ -58,21 +63,31 @@ app.post('/call', (req, res) => {
   .then(call => {
     delete call._version
     // TODO: pass to a postgraphql function
+    if (process.env.DEBUG === '1') {
+      console.log('call created on the db')
+      console.log('call', call)
+    }
     postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
   })
-  .catch(err => console.log('call:catch', err))
+  .catch(err => console.error('call:catch', err))
 
   res.end(JSON.stringify({ status: 'ok' }))
 })
 
 app.post('/forward-to', (req, res) => {
   const call = req.body
+  if (process.env.DEBUG === '1') {
+    console.log('endpoint /forward-to reached!')
+  }
 
   postgresClient
     // TODO: pass to a postgraphql view
     .query(`select * from public.twilio_calls where "from" = '${call.Called}' order by id desc limit 1`)
     .then(({ rows: [row] }) => {
       const response = new VoiceResponse()
+      if (process.env.DEBUG === '1') {
+        console.log('call row', row)
+      }
 
       if (row) {
         const dial = response.dial({ callerId: row.from })
@@ -97,7 +112,7 @@ app.post('/forward-to', (req, res) => {
 //
 const port = process.env.PORT || 7000
 http.createServer(app).listen(port)
-console.log(`1. Express server listen on port ${port}`)
+console.info(`1. Express server listen on port ${port}`)
 
 //
 // PostgreSQL connection
@@ -108,14 +123,17 @@ postgresClient.connect(err => {
 
   const triggers = ['twilio_call_created']
 
-  console.log('2. PosgreSQL client connected and watching notifications')
-  triggers.forEach(trigger => console.log(`  - ${trigger}`))
-  console.log()
+  console.info('2. PosgreSQL client connected and watching notifications')
+  triggers.forEach(trigger => console.info(`  - ${trigger}`))
+  console.info()
 
   postgresClient.on('notification', ({ channel, payload: textPayload }) => {
     if (channel === 'twilio_call_created') {
       const payload = JSON.parse(textPayload) || {}
-      request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
+      if (process.env.DEBUG === '1') {
+        console.log('listen notify triggered!')
+      }
+      // request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
     }
   })
 
