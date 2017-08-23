@@ -130,10 +130,13 @@ postgresClient.connect(err => {
   postgresClient.on('notification', ({ channel, payload: textPayload }) => {
     if (channel === 'twilio_call_created') {
       const payload = JSON.parse(textPayload) || {}
-      if (process.env.DEBUG === '1') {
-        console.log('listen notify triggered!')
+      if (process.env.ENABLE_TWILIO_CALL === '1') {
+        if (process.env.DEBUG === '1') {
+          console.log('listen notify triggered!')
+          console.log('calling endpoint /call from trigger')
+        }
+        request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
       }
-      // request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
     }
   })
 
