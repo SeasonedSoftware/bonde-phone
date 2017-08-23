@@ -9,3 +9,13 @@ All notable changes to this project will be documented in this file. See [standa
 ### Features
 
 * **ci:** add drone ci config ([6798402](https://github.com/nossas/bonde-phone/commit/6798402))
+
+
+
+<a name="1.0.0"></a>
+# 1.0.0 (2017-08-23)
+
+
+### Features
+
+* **ci:** add drone ci config ([6798402](https://github.com/nossas/bonde-phone/commit/6798402))
