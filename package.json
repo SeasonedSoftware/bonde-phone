@@ -1,6 +1,6 @@
 {
   "name": "bonde-phone",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Twilio micro-service that enables the activist to pressure through phone",
   "main": "index.js",
   "scripts": {
