@@ -17,17 +17,14 @@ pipeline:
       status: success
       branch: [hotfix-*, release-*, feature-*, develop]
 
-  deploy-staging:
-    image: appleboy/drone-ssh
-    host: staging.bonde.org
-    username: ubuntu
-    command_timeout: 120
-    port: 22
-    secrets: [ ssh_key ]
-    script:
-      - sudo docker pull nossas/bonde-phone:${DRONE_BRANCH}
-      - sudo docker tag nossas/bonde-phone:${DRONE_BRANCH} dokku/phone:latest
-      - dokku tags:deploy phone latest
+  deploy-rancher-staging:
+    image: peloton/drone-rancher
+    url: http://cluster.bonde.org
+    service: staging/phone
+    docker_image: nossas/bonde-phone:${DRONE_BRANCH}
+    timeout: 360
+    confirm: true
+    secrets: [ rancher_access_key, rancher_secret_key ]
     when:
       status: success
       branch: [hotfix-*, release-*, feature-*, develop]
@@ -42,17 +39,14 @@ pipeline:
       status: success
       event: tag
 
-  deploy-production:
-    image: appleboy/drone-ssh
-    host: ssh.bonde.org
-    username: ubuntu
-    command_timeout: 120
-    port: 22
-    secrets: [ ssh_key ]
-    script:
-      - sudo docker pull nossas/bonde-phone:${DRONE_TAG##v}
-      - sudo docker tag nossas/bonde-phone:${DRONE_TAG##v} dokku/phone:latest
-      - dokku tags:deploy phone latest
+  deploy-rancher-production:
+    image: peloton/drone-rancher
+    url: http://cluster.bonde.org
+    service: bonde/phone
+    docker_image: "nossas/bonde-phone:${DRONE_TAG##v}"
+    timeout: 360
+    confirm: true
+    secrets: [ rancher_access_key, rancher_secret_key ]
     when:
       status: success
       event: tag
@@ -60,7 +54,7 @@ pipeline:
   notify:
     image: plugins/slack
     webhook: https://hooks.slack.com/services/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
-    channel: n_tech
+    channel: bonde_bots
     username: CI - ${DRONE_REPO_NAME}
     when:
       event: [ push, tag, build, publish, deployment, pull_request ]

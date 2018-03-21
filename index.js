@@ -39,6 +39,10 @@ app.post('/call-status-tracking', (req, res) => {
   }
 })
 
+app.get('/ping', (req, res) => {
+  return res.end(JSON.stringify({ status: 'ok' }))
+})
+
 app.post('/call', (req, res) => {
   const { id, from: caller } = req.body
   if (process.env.DEBUG === '1') {
@@ -118,29 +122,27 @@ console.info(`1. Express server listen on port ${port}`)
 // PostgreSQL connection
 // TODO: refact into a separated file
 //
-postgresClient.connect(err => {
-  if (err) console.error('connection error', err.stack)
+postgresClient.connect()
 
-  const triggers = ['twilio_call_created']
+postgresClient.on('notice', (msg) => console.warn('notice:', msg))
 
-  console.info('2. PosgreSQL client connected and watching notifications')
-  triggers.forEach(trigger => console.info(`  - ${trigger}`))
-  console.info()
-
-  postgresClient.on('notification', ({ channel, payload: textPayload }) => {
-    if (channel === 'twilio_call_created') {
-      const payload = JSON.parse(textPayload) || {}
-      if (process.env.ENABLE_TWILIO_CALL === '1') {
-        if (process.env.DEBUG === '1') {
-          console.log('listen notify triggered!')
-          console.log('calling endpoint /call from trigger')
-        }
-        request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
-      }
-    }
-  })
-
-  triggers.forEach(trigger => {
-    postgresClient.query(`LISTEN ${trigger}`)
-  })
+postgresClient.on('error', (err) => {
+  console.error('connection error', err.stack)
 })
+
+console.info('2. PosgreSQL client connected and watching notifications')
+
+postgresClient.on('notification', ({ channel, payload: textPayload }) => {
+  if (channel === 'twilio_call_created') {
+    const payload = JSON.parse(textPayload) || {}
+    if (process.env.DEBUG === '1') {
+      console.log('listen notify triggered!')
+      console.log('calling endpoint /call from trigger')
+    }
+    if (process.env.ENABLE_TWILIO_CALL === '1') {
+      request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
+    }
+  }
+})
+
+postgresClient.query(`LISTEN twilio_call_created;`)
