@@ -1,21 +1,25 @@
+import { twiml } from 'twilio'
+
 import { debug } from '../utils'
 import * as queries from '../queries'
+
+const VoiceResponse = twiml.VoiceResponse
 
 //
 // Endpoint to forward to after the twilio call has finished.
 //
-// @param config {Object} Midlleware configuration object.
-// @param config.postgresClient {pg/Client} Postgres `pg` lib client database connection instance.
+// @param deps {Object} Midlleware dependencies object.
+// @param deps.postgresClient {pg/Client} Postgres `pg` lib client database connection instance.
 //
 export default ({ postgresClient }) => (req, res) => {
   const call = req.body
 
-  debug(info => info('endpoint /forward-to reached!'))
+  debug(info => info('Endpoint `/forward-to` reached!'))
 
   postgresClient
     .query(queries.getTwilioCallByCaller(call))
     .then(({ rows: [row] }) => {
-      debug(info => info('call row', row))
+      debug(info => info('Call row', row))
 
       const response = new VoiceResponse()
 

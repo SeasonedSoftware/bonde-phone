@@ -4,15 +4,15 @@ import * as queries from '../queries'
 //
 // Endpoint to initialize the twilio call.
 //
-// @param config {Object} Midlleware configuration object.
-// @param config.postgresClient {pg/Client} Library `pg` database connection instance.
-// @param config.twilioClient {twilio} Library `twilio` API connection instance.
+// @param deps {Object} Midlleware dependencies object.
+// @param deps.twilioClient {twilio} Library `twilio` API connection instance.
+// @param deps.postgresClient {pg/Client} Library `pg` database connection instance.
 //
 export default ({ twilioClient, postgresClient }) => (req, res) => {
   const { id, from: caller } = req.body
 
   debug(info => {
-    info('endpoint /call entered!')
+    info('Endpoint `/call` reached!')
     info('id', id)
     info('caller', caller)
   })
@@ -34,7 +34,7 @@ export default ({ twilioClient, postgresClient }) => (req, res) => {
     delete call._version
 
     debug(info => {
-      info('call created on the db')
+      info('Call created on the db.')
       info('call', call)
     })
 
