@@ -45,14 +45,12 @@ postgresClient.on('notification', ({ channel, payload: textPayload }) => {
   if (channel === 'twilio_call_created') {
     const payload = JSON.parse(textPayload) || {}
 
-    debug(info => {
-      info('Listen notify triggered!')
-      info('Calling endpoint `/call` from notify trigger')
-    })
+    debug(info => info(`Notification received from: twilio_calls[${payload.id}]`))
 
-    if (process.env.ENABLE_TWILIO_CALL === '1') {
-      request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
-    }
+    request.post(
+      `${process.env.APP_DOMAIN}/community/${payload.community_id}/call`,
+      { form: payload }
+    )
   }
 })
 
@@ -68,6 +66,7 @@ postgresClient.query(queries.getTwilioConfigs())
 
     if (count > 0) {
       configs.forEach(config => {
+        const id = config.community_id
         //
         // Twilio client setup.
         //
@@ -79,15 +78,21 @@ postgresClient.query(queries.getTwilioConfigs())
         //
         // Express server endpoints setup.
         //
-        const deps = { twilioClient, postgresClient }
-        app.get('/ping', middlewares.ping())
-        app.post('/call-status-tracking', middlewares.callStatusTracking(deps))
-        app.post('/call', middlewares.call(deps))
-        app.post('/forward-to', middlewares.forwardTo(deps))
+        app.post(
+          `/community/${id}/call`,
+          middlewares.call({ twilioClient, postgresClient, config })
+        )
 
-        console.info(` - Endpoints for community: [${config.community_id}]`.cyan)
+        console.info(` - Exposed: /community/${id}/call`.cyan)
       })
     }
     else console.error(' - No configuration to expose Twilio call endpoins.'.red)
   })
   .catch(err => console.error('factory:catch', err))
+
+//
+// Express endpoints.
+//
+app.get('/ping', middlewares.ping())
+app.post('/call-status-tracking', middlewares.callStatusTracking({ postgresClient }))
+app.post('/forward-to', middlewares.forwardTo({ postgresClient }))
