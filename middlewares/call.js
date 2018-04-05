@@ -1,3 +1,4 @@
+import { debug } from '../utils'
 import * as queries from '../queries'
 
 //
@@ -10,11 +11,11 @@ import * as queries from '../queries'
 export default ({ twilioClient, postgresClient }) => (req, res) => {
   const { id, from: caller } = req.body
 
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /call entered!')
-    console.log('id', id)
-    console.log('caller', caller)
-  }
+  debug(info => {
+    info('endpoint /call entered!')
+    info('id', id)
+    info('caller', caller)
+  })
 
   if (!id || !caller) {
     return res.end(JSON.stringify({ status: 'error' }))
@@ -32,10 +33,10 @@ export default ({ twilioClient, postgresClient }) => (req, res) => {
   .then(call => {
     delete call._version
 
-    if (process.env.DEBUG === '1') {
-      console.log('call created on the db')
-      console.log('call', call)
-    }
+    debug(info => {
+      info('call created on the db')
+      info('call', call)
+    })
 
     postgresClient.query(queries.updateTwilioCall(id, call))
   })

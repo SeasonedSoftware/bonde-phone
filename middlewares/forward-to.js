@@ -1,3 +1,4 @@
+import { debug } from '../utils'
 import * as queries from '../queries'
 
 //
@@ -9,16 +10,12 @@ import * as queries from '../queries'
 export default ({ postgresClient }) => (req, res) => {
   const call = req.body
 
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /forward-to reached!')
-  }
+  debug(info => info('endpoint /forward-to reached!'))
 
   postgresClient
     .query(queries.getTwilioCallByCaller(call))
     .then(({ rows: [row] }) => {
-      if (process.env.DEBUG === '1') {
-        console.log('call row', row)
-      }
+      debug(info => info('call row', row))
 
       const response = new VoiceResponse()
 
