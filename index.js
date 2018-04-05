@@ -7,6 +7,8 @@ import bodyParser from 'body-parser'
 import twilio, { twiml } from 'twilio'
 import { Client as PostgresClient } from 'pg'
 
+import * as queries from './queries'
+
 //
 // Twilio client setup
 //
@@ -28,14 +30,12 @@ const postgresClient = new PostgresClient({ connectionString: process.env.DATABA
 //
 // Express server endpoints
 // TODO: refact the endpoints into a route file
-// TODO: integrate GraphQL Apollo Client
-// TODO: make the code more readable
 //
 app.post('/call-status-tracking', (req, res) => {
-  if (req.body) {
-    const call = req.body
-    // TODO: pass to a postgraphql function
-    postgresClient.query(`insert into public.twilio_call_transitions (twilio_account_sid, twilio_call_sid, twilio_parent_call_sid, sequence_number, status, caller, called, call_duration, data, created_at, updated_at) values ('${call.AccountSid}', '${call.CallSid}', ${call.ParentCallSid ? '\'' + call.ParentCallSid + '\'' : 'null'}, ${call.SequenceNumber}, '${call.CallStatus}', '${call.Caller}', '${call.Called}', ${call.CallDuration || 'null'}, '${JSON.stringify(call)}', now(), now());`)
+  const call = req.body
+
+  if (call) {
+    postgresClient.query(queries.insertTwilioCallTransition(call))
   }
 })
 
@@ -45,6 +45,7 @@ app.get('/ping', (req, res) => {
 
 app.post('/call', (req, res) => {
   const { id, from: caller } = req.body
+
   if (process.env.DEBUG === '1') {
     console.log('endpoint /call entered!')
     console.log('id', id)
@@ -66,12 +67,13 @@ app.post('/call', (req, res) => {
   })
   .then(call => {
     delete call._version
-    // TODO: pass to a postgraphql function
+
     if (process.env.DEBUG === '1') {
       console.log('call created on the db')
       console.log('call', call)
     }
-    postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
+
+    postgresClient.query(queries.updateTwilioCall(id, call))
   })
   .catch(err => console.error('call:catch', err))
 
@@ -85,8 +87,7 @@ app.post('/forward-to', (req, res) => {
   }
 
   postgresClient
-    // TODO: pass to a postgraphql view
-    .query(`select * from public.twilio_calls where "from" = '${call.Called}' order by id desc limit 1`)
+    .query(queries.getTwilioCallByCaller(call))
     .then(({ rows: [row] }) => {
       const response = new VoiceResponse()
       if (process.env.DEBUG === '1') {
@@ -123,12 +124,8 @@ console.info(`1. Express server listen on port ${port}`)
 // TODO: refact into a separated file
 //
 postgresClient.connect()
-
-postgresClient.on('notice', (msg) => console.warn('notice:', msg))
-
-postgresClient.on('error', (err) => {
-  console.error('connection error', err.stack)
-})
+postgresClient.on('notice', msg => console.warn('notice:', msg))
+postgresClient.on('error', err => console.error('connection error', err.stack))
 
 console.info('2. PosgreSQL client connected and watching notifications')
 
