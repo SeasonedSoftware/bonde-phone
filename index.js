@@ -8,6 +8,12 @@ import twilio, { twiml } from 'twilio'
 import { Client as PostgresClient } from 'pg'
 
 import * as queries from './queries'
+import * as middlewares from './middlewares'
+
+//
+// PostgreSQL client configuration
+//
+const postgresClient = new PostgresClient({ connectionString: process.env.DATABASE_URL })
 
 //
 // Twilio client setup
@@ -23,94 +29,13 @@ app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
 //
-// PostgreSQL client configuration
-//
-const postgresClient = new PostgresClient({ connectionString: process.env.DATABASE_URL })
-
-//
 // Express server endpoints
-// TODO: refact the endpoints into a route file
 //
-app.post('/call-status-tracking', (req, res) => {
-  const call = req.body
+app.get('/ping', middlewares.ping())
 
-  if (call) {
-    postgresClient.query(queries.insertTwilioCallTransition(call))
-  }
-})
-
-app.get('/ping', (req, res) => {
-  return res.end(JSON.stringify({ status: 'ok' }))
-})
-
-app.post('/call', (req, res) => {
-  const { id, from: caller } = req.body
-
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /call entered!')
-    console.log('id', id)
-    console.log('caller', caller)
-  }
-
-  if (!id || !caller) {
-    return res.end(JSON.stringify({ status: 'error' }))
-  }
-
-  twilioClient.calls.create({
-    url: `${process.env.APP_DOMAIN}/forward-to`,
-    to: caller,
-    from: process.env.TWILIO_NUMBER,
-    method: 'POST',
-    statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
-    statusCallbackMethod: 'POST',
-    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-  })
-  .then(call => {
-    delete call._version
-
-    if (process.env.DEBUG === '1') {
-      console.log('call created on the db')
-      console.log('call', call)
-    }
-
-    postgresClient.query(queries.updateTwilioCall(id, call))
-  })
-  .catch(err => console.error('call:catch', err))
-
-  res.end(JSON.stringify({ status: 'ok' }))
-})
-
-app.post('/forward-to', (req, res) => {
-  const call = req.body
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /forward-to reached!')
-  }
-
-  postgresClient
-    .query(queries.getTwilioCallByCaller(call))
-    .then(({ rows: [row] }) => {
-      const response = new VoiceResponse()
-      if (process.env.DEBUG === '1') {
-        console.log('call row', row)
-      }
-
-      if (row) {
-        const dial = response.dial({ callerId: row.from })
-        row.to.split(',').forEach(to => {
-          dial.number({
-            statusCallbackEvent: 'initiated ringing answered completed',
-            statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
-            statusCallbackMethod: 'POST'
-          }, to)
-        })
-        // maybe a thank you message?
-        res.set('Content-Type', 'text/xml')
-        res.send(response.toString())
-      } else {
-        res.end(JSON.stringify({ status: 'no-data' }))
-      }
-    })
-})
+app.post('/call-status-tracking', middlewares.callStatusTracking({ postgresClient }))
+app.post('/call', middlewares.call({ twilioClient, postgresClient }))
+app.post('/forward-to', middlewares.forwardTo({ postgresClient }))
 
 //
 // Initilize Express server
