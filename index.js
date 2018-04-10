@@ -1,15 +1,14 @@
 require('dotenv').config()
 
 import http from 'http'
-import request from 'request'
 import express from 'express'
 import bodyParser from 'body-parser'
-import twilio from 'twilio'
 import { Client as PostgresClient } from 'pg'
 
 import * as queries from './queries'
 import * as middlewares from './middlewares'
-import { debug } from './utils'
+import * as factories from './factories'
+import * as notifications from './notifications'
 
 //
 // PostgreSQL client connection setup.
@@ -32,58 +31,32 @@ console.info(`1. Express server listen on port ${port}`)
 
 //
 // PostgreSQL connection.
+// TODO: Refactor pg client instance events into directories like /pg/events/*
 //
 postgresClient.connect()
 postgresClient.on('notice', msg => console.warn(`notice: ${msg}`.yellow))
 postgresClient.on('error', err => console.error(`connection error ${err.stack}`.red))
-console.info('2. PosgreSQL client connected.'.yellow)
+console.info('2. PosgreSQL client connected.')
 
 //
 // Postgres listen/notify.
+// TODO: Refactor pg client instance events into directories like /pg/events/*
 //
-postgresClient.on('notification', ({ channel, payload: textPayload }) => {
-  if (channel === 'twilio_call_created') {
-    const payload = JSON.parse(textPayload) || {}
-
-    debug(info => info(`Notification received from: twilio_calls[${payload.id}]`))
-
-    request.post(
-      `${process.env.APP_DOMAIN}/community/${payload.community_id}/call`,
-      { form: payload }
-    )
-  }
-})
-
-postgresClient.query(`LISTEN twilio_call_created;`)
+postgresClient.on('notification', notifications.strategy({ app, postgresClient }))
+notifications.listeners({ postgresClient })
 console.info('3. PosgreSQL listening notifications.')
 
 //
-// Factory: Twilio call endpoints with configuration context.
+// Twilio call endpoints with configuration context on server init.
 //
 postgresClient.query(queries.getTwilioConfigs())
   .then(({ rowCount: count, rows: configs }) => {
     console.info('4. Exposing Express endpoints.')
 
     if (count > 0) {
-      configs.forEach(config => {
-        const id = config.community_id
-        //
-        // Twilio client setup.
-        //
-        const twilioClient = twilio(
-          config.twilio_account_sid,
-          config.twilio_auth_token
-        )
-
-        //
-        // Express server endpoints setup.
-        //
-        app.post(
-          `/community/${id}/call`,
-          middlewares.call({ twilioClient, postgresClient, config })
-        )
-
-        console.info(` - Exposed: /community/${id}/call`.cyan)
+      configs.forEach(twilioConfig => {
+        const deps = { app, postgresClient }
+        factories.twilioConfiguration(deps, twilioConfig)
       })
     }
     else console.error(' - No configuration to expose Twilio call endpoins.'.red)
