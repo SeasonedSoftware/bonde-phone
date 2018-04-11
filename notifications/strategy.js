@@ -16,9 +16,6 @@ export default deps => ({ channel, payload: textPayload }) => {
 
   switch (channel) {
     case 'twilio_call_created':
-      debug(info => info(
-        `Notification received from: twilio_call_created[${payload.id}]`
-      ))
       request.post(
         `${process.env.APP_DOMAIN}/community/${payload.community_id}/call`,
         { form: payload }
@@ -26,10 +23,10 @@ export default deps => ({ channel, payload: textPayload }) => {
     break;
 
     case 'twilio_configuration_created':
-      debug(info => info(
-        `Notification received from: twilio_configuration_created[${payload.id}]`
-      ))
+    case 'twilio_configuration_updated':
       factories.twilioConfiguration({ app, postgresClient }, payload)
     break;
   }
+
+  debug(info => info(`Notification received from: ${channel}[${payload.id}]`))
 }
