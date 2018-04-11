@@ -10,11 +10,13 @@ const VoiceResponse = twiml.VoiceResponse
 //
 // @param deps {Object} Midlleware dependencies object.
 // @param deps.postgresClient {pg/Client} Postgres `pg` lib client database connection instance.
+// @returns {Function} Express server middleware.
 //
-export default ({ postgresClient }) => (req, res) => {
+export default deps => (req, res) => {
+  const { postgresClient } = deps
   const call = req.body
 
-  debug(info => info('Endpoint `/forward-to` reached!'))
+  debug(info => info('/forward-to Called.'))
 
   postgresClient
     .query(queries.getTwilioCallByCaller(call))

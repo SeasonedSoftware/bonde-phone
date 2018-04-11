@@ -21,23 +21,23 @@ global.TwilioConfigurations = {}
 //
 // Factory that fabricates Express endpoints based on Twilio configurations.
 //
-// @param deps {Object} Notifications dependencies object.
+// @param deps {Object} Dependencies object.
 // @param deps.app {express} Express server instance.
 // @param deps.postgresClient {pg/Client} Postgres `pg` lib client database connection instance.
-// @param config {Object} Dataset of `twilio_configurations` table.
+// @param twilioConfig {Object} Dataset of `twilio_configurations` table.
 //
-export default (deps, config) => {
+export default (deps, twilioConfig) => {
   const { app, postgresClient } = deps
 
-  const { community_id: communityId } = config
+  const { community_id: communityId } = twilioConfig
 
   //
   // Add Twilio configuration to global variable.
   //
-  global.TwilioConfigurations[communityId] = config
+  global.TwilioConfigurations[communityId] = twilioConfig
 
   //
-  // Express server endpoints setup.
+  // Community context Express server Twilio call endpoint bootstrap.
   //
   app.post(
     `/community/${communityId}/call`,
