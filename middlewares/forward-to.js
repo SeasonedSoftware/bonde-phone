@@ -15,12 +15,11 @@ export default deps => (req, res) => {
   const { postgresClient } = deps
   const call = req.body
 
-  log.debug('/forward-to Called.')
+  log.debug('/forward-to Called.', `call[${call.ParentCallSid || call.CallSid}]`)
 
   postgresClient
     .query(queries.getTwilioCallByCaller(call))
     .then(({ rows: [row] }) => {
-      log.debug('Call row', row)
 
       const response = new VoiceResponse()
 

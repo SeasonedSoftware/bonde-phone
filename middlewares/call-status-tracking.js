@@ -11,7 +11,10 @@ import { log } from '../utils'
 export default ({ postgresClient }) => (req, res) => {
   const call = req.body
 
-  log.debug('/call-status-tracking Called.')
+  log.debug(
+    '/call-status-tracking Called.',
+    `call[${call.ParentCallSid ? `${call.ParentCallSid},` : ''}${call.CallSid}]{${call.CallStatus}}`
+  )
 
   if (call) postgresClient.query(queries.insertTwilioCallTransition(call))
   else log.error('/call-status-tracking Cannot insert an undefined `call` object.')
