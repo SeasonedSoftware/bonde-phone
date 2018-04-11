@@ -1,5 +1,5 @@
 import request from 'request'
-import { debug } from '../utils'
+import { log } from '../utils'
 import * as factories from '../factories'
 
 //
@@ -15,7 +15,7 @@ export default deps => ({ channel, payload: textPayload }) => {
 
   const payload = JSON.parse(textPayload) || {}
 
-  debug(info => info(`Notification received from: ${channel}[${payload.id}]`))
+  log.debug(`Notification received from: ${channel}[${payload.id}]`)
 
   switch (channel) {
     case 'twilio_call_created':
@@ -26,8 +26,11 @@ export default deps => ({ channel, payload: textPayload }) => {
     break;
 
     case 'twilio_configuration_created':
-    case 'twilio_configuration_updated':
       factories.twilioConfiguration({ app, postgresClient }, payload)
+      break;
+
+    case 'twilio_configuration_updated':
+      factories.twilioConfiguration({ app, postgresClient }, payload, true)
     break;
   }
 }

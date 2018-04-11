@@ -1,6 +1,5 @@
 import { twiml } from 'twilio'
-
-import { debug } from '../utils'
+import { log } from '../utils'
 import * as queries from '../queries'
 
 const VoiceResponse = twiml.VoiceResponse
@@ -16,12 +15,12 @@ export default deps => (req, res) => {
   const { postgresClient } = deps
   const call = req.body
 
-  debug(info => info('/forward-to Called.'))
+  log.debug('/forward-to Called.')
 
   postgresClient
     .query(queries.getTwilioCallByCaller(call))
     .then(({ rows: [row] }) => {
-      debug(info => info('Call row', row))
+      log.debug('Call row', row)
 
       const response = new VoiceResponse()
 

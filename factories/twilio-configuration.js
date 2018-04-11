@@ -1,4 +1,5 @@
 import * as middlewares from '../middlewares'
+import { log } from '../utils'
 
 //
 // Global variable that stores all Twilio configurations.
@@ -25,8 +26,9 @@ global.TwilioConfigurations = {}
 // @param deps.app {express} Express server instance.
 // @param deps.postgresClient {pg/Client} Postgres `pg` lib client database connection instance.
 // @param twilioConfig {Object} Dataset of `twilio_configurations` table.
+// @param update {Boolean} Flag that determines if configuration is an update.
 //
-export default (deps, twilioConfig) => {
+export default (deps, twilioConfig, update = false) => {
   const { app, postgresClient } = deps
 
   const { community_id: communityId } = twilioConfig
@@ -44,5 +46,5 @@ export default (deps, twilioConfig) => {
     middlewares.call({ postgresClient, communityId })
   )
 
-  console.info(` - Exposed: /community/${communityId}/call`.cyan)
+  log.item(`${!update ? 'Exposed' : 'Updated'}: /community/${communityId}/call`)
 }

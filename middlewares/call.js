@@ -1,5 +1,5 @@
 import twilio from 'twilio'
-import { debug } from '../utils'
+import { log } from '../utils'
 import * as queries from '../queries'
 
 //
@@ -16,25 +16,26 @@ export default deps => (req, res) => {
 
   const config = global.TwilioConfigurations[communityId] || {}
 
-  debug(info => info(`/community/${communityId}/call Called.`))
+  log.debug(`/community/${communityId}/call Called.`)
 
   if (!Object.keys(config).length) {
-    console.error(`Cannot make a call without Twilio config for community [${communityId}]`)
+    log.error(`Cannot make a call without Twilio config for community [${communityId}]`)
   }
 
   else if (!id || !caller) {
-    console.error(`Cannot make a call without caller{${caller}} or call id{${id}}.`.red)
+    log.error(`Cannot make a call without caller{${caller}} or call id{${id}}.`.red)
   }
 
   else if (process.env.ENABLE_TWILIO_CALL !== '1') {
-    debug(info => info(
+    log.debug(
       `/community/${communityId}/call ` +
       `Data { id: ${id}, from: '${config.twilio_number}', to: '${caller}' }`
-    ))
-    debug(info => info(
+    )
+    log.debug(
       `/community/${communityId}/call Supressed Twilio call. ` +
       'Enable the `ENABLE_TWILIO_CALL` environment variable to proceed.'
-    ))
+    )
+    log.success(`Call initiated from ${config.twilio_number} to ${caller}. (${id})`)
   }
 
   else {
@@ -44,10 +45,10 @@ export default deps => (req, res) => {
       twilio_number: twilioNumber
     } = config
 
-    debug(info => info(
+    log.debug(
       `/community/${communityId}/call ` +
       `Data { id: ${id}, from: '${twilioNumber}', to: '${caller}' }`
-    ))
+    )
 
     //
     // Connect to Twilio API to proceed the call.
@@ -62,12 +63,12 @@ export default deps => (req, res) => {
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
     })
     .then(call => {
-      delete call._version
-      debug(info => info(`Call [${id}] initiated. ${call}`))
+      log.success(`Call initiated from ${twilioNumber} to ${caller}. (${id})`)
 
+      delete call._version
       postgresClient.query(queries.updateTwilioCall(id, call))
     })
-    .catch(err => console.error('call:catch', err))
+    .catch(err => log.error('call:catch', err))
   }
 
   res.end(JSON.stringify({ status: 'ok' }))

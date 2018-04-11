@@ -9,6 +9,7 @@ import * as queries from './queries'
 import * as middlewares from './middlewares'
 import * as factories from './factories'
 import * as notifications from './notifications'
+import { log } from './utils'
 
 //
 // PostgreSQL client connection setup.
@@ -27,16 +28,16 @@ app.use(bodyParser.urlencoded({ extended: true }))
 //
 const port = process.env.PORT || 7000
 http.createServer(app).listen(port)
-console.info(`1. Express server listen on port ${port}`)
+log.info(`1. Express server listen on port ${port}`)
 
 //
 // PostgreSQL connection.
 // TODO: Refactor pg client instance events into directories like /pg/events/*
 //
 postgresClient.connect()
-postgresClient.on('notice', msg => console.warn(`notice: ${msg}`.yellow))
-postgresClient.on('error', err => console.error(`connection error ${err.stack}`.red))
-console.info('2. PosgreSQL client connected.')
+postgresClient.on('notice', msg => log.warning(`notice: ${msg}`))
+postgresClient.on('error', err => log.error(`connection error ${err.stack}`))
+log.info('2. PosgreSQL client connected.')
 
 //
 // Postgres listen/notify.
@@ -44,14 +45,14 @@ console.info('2. PosgreSQL client connected.')
 //
 postgresClient.on('notification', notifications.strategy({ app, postgresClient }))
 notifications.listeners({ postgresClient })
-console.info('3. PosgreSQL listening notifications.')
+log.info('3. PosgreSQL listening notifications.')
 
 //
 // Twilio call endpoints with configuration context on server init.
 //
 postgresClient.query(queries.getTwilioConfigs())
   .then(({ rowCount: count, rows: configs }) => {
-    console.info('4. Exposing Express endpoints.')
+    log.info('4. Exposing Express endpoints.')
 
     if (count > 0) {
       configs.forEach(twilioConfig => {
@@ -59,9 +60,9 @@ postgresClient.query(queries.getTwilioConfigs())
         factories.twilioConfiguration(deps, twilioConfig)
       })
     }
-    else console.error(' - No configuration to expose Twilio call endpoins.'.red)
+    else log.error(' - No configuration to expose Twilio call endpoins.')
   })
-  .catch(err => console.error('factory:catch', err))
+  .catch(err => log.error('factory:catch', err))
 
 //
 // Express endpoints.

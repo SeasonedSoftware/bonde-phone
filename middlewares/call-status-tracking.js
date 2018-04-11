@@ -1,5 +1,5 @@
 import * as queries from '../queries'
-import { debug } from '../utils'
+import { log } from '../utils'
 
 //
 // Endpoint to track the Twilio call status transition.
@@ -11,10 +11,10 @@ import { debug } from '../utils'
 export default ({ postgresClient }) => (req, res) => {
   const call = req.body
 
-  debug(info => info('/call-status-tracking Called.'))
+  log.debug('/call-status-tracking Called.')
 
   if (call) postgresClient.query(queries.insertTwilioCallTransition(call))
-  else console.error('/call-status-tracking Cannot insert an undefined `call` object.')
+  else log.error('/call-status-tracking Cannot insert an undefined `call` object.')
 
   res.end(JSON.stringify({ status: 'ok' }))
 }
