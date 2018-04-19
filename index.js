@@ -1,148 +1,72 @@
 require('dotenv').config()
 
 import http from 'http'
-import request from 'request'
 import express from 'express'
 import bodyParser from 'body-parser'
-import twilio, { twiml } from 'twilio'
 import { Client as PostgresClient } from 'pg'
 
-//
-// Twilio client setup
-//
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-const VoiceResponse = twiml.VoiceResponse
+import * as queries from './queries'
+import * as middlewares from './middlewares'
+import * as factories from './factories'
+import * as notifications from './notifications'
+import { log } from './utils'
 
 //
-// Express server setup
+// PostgreSQL client connection setup.
+//
+const postgresClient = new PostgresClient({ connectionString: process.env.DATABASE_URL })
+
+//
+// Express server setup.
 //
 const app = express()
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
 //
-// PostgreSQL client configuration
-//
-const postgresClient = new PostgresClient({ connectionString: process.env.DATABASE_URL })
-
-//
-// Express server endpoints
-// TODO: refact the endpoints into a route file
-// TODO: integrate GraphQL Apollo Client
-// TODO: make the code more readable
-//
-app.post('/call-status-tracking', (req, res) => {
-  if (req.body) {
-    const call = req.body
-    // TODO: pass to a postgraphql function
-    postgresClient.query(`insert into public.twilio_call_transitions (twilio_account_sid, twilio_call_sid, twilio_parent_call_sid, sequence_number, status, caller, called, call_duration, data, created_at, updated_at) values ('${call.AccountSid}', '${call.CallSid}', ${call.ParentCallSid ? '\'' + call.ParentCallSid + '\'' : 'null'}, ${call.SequenceNumber}, '${call.CallStatus}', '${call.Caller}', '${call.Called}', ${call.CallDuration || 'null'}, '${JSON.stringify(call)}', now(), now());`)
-  }
-})
-
-app.get('/ping', (req, res) => {
-  return res.end(JSON.stringify({ status: 'ok' }))
-})
-
-app.post('/call', (req, res) => {
-  const { id, from: caller } = req.body
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /call entered!')
-    console.log('id', id)
-    console.log('caller', caller)
-  }
-
-  if (!id || !caller) {
-    return res.end(JSON.stringify({ status: 'error' }))
-  }
-
-  twilioClient.calls.create({
-    url: `${process.env.APP_DOMAIN}/forward-to`,
-    to: caller,
-    from: process.env.TWILIO_NUMBER,
-    method: 'POST',
-    statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
-    statusCallbackMethod: 'POST',
-    statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
-  })
-  .then(call => {
-    delete call._version
-    // TODO: pass to a postgraphql function
-    if (process.env.DEBUG === '1') {
-      console.log('call created on the db')
-      console.log('call', call)
-    }
-    postgresClient.query(`update public.twilio_calls set twilio_account_sid = '${call.accountSid}', twilio_call_sid = '${call.sid}', data = '${JSON.stringify(call)}' where id = ${id};`)
-  })
-  .catch(err => console.error('call:catch', err))
-
-  res.end(JSON.stringify({ status: 'ok' }))
-})
-
-app.post('/forward-to', (req, res) => {
-  const call = req.body
-  if (process.env.DEBUG === '1') {
-    console.log('endpoint /forward-to reached!')
-  }
-
-  postgresClient
-    // TODO: pass to a postgraphql view
-    .query(`select * from public.twilio_calls where "from" = '${call.Called}' order by id desc limit 1`)
-    .then(({ rows: [row] }) => {
-      const response = new VoiceResponse()
-      if (process.env.DEBUG === '1') {
-        console.log('call row', row)
-      }
-
-      if (row) {
-        const dial = response.dial({ callerId: row.from })
-        row.to.split(',').forEach(to => {
-          dial.number({
-            statusCallbackEvent: 'initiated ringing answered completed',
-            statusCallback: `${process.env.APP_DOMAIN}/call-status-tracking`,
-            statusCallbackMethod: 'POST'
-          }, to)
-        })
-        // maybe a thank you message?
-        res.set('Content-Type', 'text/xml')
-        res.send(response.toString())
-      } else {
-        res.end(JSON.stringify({ status: 'no-data' }))
-      }
-    })
-})
-
-//
-// Initilize Express server
+// Initilize Express server.
 //
 const port = process.env.PORT || 7000
 http.createServer(app).listen(port)
-console.info(`1. Express server listen on port ${port}`)
+log.info(`1. Express server listen on port ${port}`)
 
 //
-// PostgreSQL connection
-// TODO: refact into a separated file
+// PostgreSQL connection.
+// TODO: Refactor pg client instance events into directories like /pg/events/*
 //
 postgresClient.connect()
+postgresClient.on('notice', msg => log.warning(`notice: ${msg}`))
+postgresClient.on('error', err => log.error(`connection error ${err.stack}`))
+log.info('2. PosgreSQL client connected.')
 
-postgresClient.on('notice', (msg) => console.warn('notice:', msg))
+//
+// Postgres listen/notify.
+// TODO: Refactor pg client instance events into directories like /pg/events/*
+//
+postgresClient.on('notification', notifications.strategy({ app, postgresClient }))
+notifications.listeners({ postgresClient })
+log.info('3. PosgreSQL listening notifications.')
 
-postgresClient.on('error', (err) => {
-  console.error('connection error', err.stack)
-})
+//
+// Twilio call endpoints with configuration context on server init.
+//
+postgresClient.query(queries.getTwilioConfigs())
+  .then(({ rowCount: count, rows: configs }) => {
+    log.info('4. Exposing Express endpoints.')
 
-console.info('2. PosgreSQL client connected and watching notifications')
-
-postgresClient.on('notification', ({ channel, payload: textPayload }) => {
-  if (channel === 'twilio_call_created') {
-    const payload = JSON.parse(textPayload) || {}
-    if (process.env.DEBUG === '1') {
-      console.log('listen notify triggered!')
-      console.log('calling endpoint /call from trigger')
+    if (count > 0) {
+      configs.forEach(twilioConfig => {
+        const deps = { app, postgresClient }
+        factories.twilioConfiguration(deps, twilioConfig)
+      })
     }
-    if (process.env.ENABLE_TWILIO_CALL === '1') {
-      request.post(`${process.env.APP_DOMAIN}/call`, { form: payload })
-    }
-  }
-})
+    else log.error(' - No configuration to expose Twilio call endpoins.')
+  })
+  .catch(err => log.error('factory:catch', err))
 
-postgresClient.query(`LISTEN twilio_call_created;`)
+//
+// Express endpoints.
+//
+app.get('/ping', middlewares.ping())
+app.post('/call-status-tracking', middlewares.callStatusTracking({ postgresClient }))
+app.post('/forward-to', middlewares.forwardTo({ postgresClient }))
